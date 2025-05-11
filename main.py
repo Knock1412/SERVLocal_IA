@@ -1,3 +1,4 @@
+
 import requests
 from sentence_transformers import SentenceTransformer, util
 import torch
@@ -35,7 +36,6 @@ def summarize():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 # === Recherche sémantique ===
 @app.route("/search", methods=["POST"])
 def search():
@@ -61,6 +61,36 @@ def search():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# === Q&A sur document PDF avec Mistral ===
+@app.route("/ask", methods=["POST"])
+def ask_question():
+    data = request.get_json()
+    context = data.get("context", "")
+    question = data.get("question", "")
+
+    if not context or not question:
+        return jsonify({"error": "Contexte ou question manquant"}), 400
+
+    prompt = f"""Tu es un assistant intelligent. Voici un document :\n
+{context}\n
+En te basant uniquement sur ce document, répond à la question suivante :\n
+{question}
+"""
+
+    try:
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "mistral",
+                "prompt": prompt,
+                "stream": False
+            }
+        )
+        result = response.json()
+        answer = result.get("response", "").strip()
+        return jsonify({"answer": answer})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
